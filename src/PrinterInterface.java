@@ -11,7 +11,7 @@ public interface PrinterInterface extends Remote {
     public void stop() throws RemoteException;
     public void restart() throws RemoteException;
     public String status(String printer) throws RemoteException;
-    public void readConfig(String parameter) throws RemoteException;
+    public String readConfig(String parameter) throws RemoteException;
     public void setConfig(String parameter, String value) throws RemoteException;
 
 

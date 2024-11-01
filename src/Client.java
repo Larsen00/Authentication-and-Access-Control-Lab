@@ -25,8 +25,10 @@ public class Client {
             System.out.println("4. start <printer>");
             System.out.println("5. stop <printer>");
             System.out.println("6. status <printer>");
-            System.out.println("7. restart");
-            System.out.println("8. exit");
+            System.out.println("7. readConfig <parameter>");
+            System.out.println("8. setConfig <parameter, value>");
+            System.out.println("9. restart");
+            System.out.println("10. exit");
 
             while (true) {
                 System.out.print("> ");
@@ -91,7 +93,27 @@ public class Client {
                 } else if (command.equals("exit")) {
                     System.out.println("Exiting...");
                     break;
-                } else {
+                
+                } 
+                else if (command.startsWith("readConfig")){
+                    String[] parts = command.split(" ");
+                    if (parts.length == 2) {
+                        String status = printRMI.readConfig(parts[1]);
+                        System.out.println(status);
+                    } else {
+                        System.out.println("Usage: status <printer>");
+                    }
+                }
+                else if (command.startsWith("setConfig")){
+                    String[] parts = command.split(" ");
+                    if (parts.length == 3) {
+                        printRMI.setConfig(parts[1],parts[2]);
+                        
+                    } else {
+                        System.out.println("Usage: status <printer>");
+                    }
+                }
+                else {
                     System.out.println("Unknown command. Please try again.");
                 }
             }

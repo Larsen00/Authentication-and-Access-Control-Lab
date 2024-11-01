@@ -1,6 +1,8 @@
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 
 
@@ -8,10 +10,11 @@ public class PrintRMI extends UnicastRemoteObject implements PrinterInterface {
 
     Queue<Printer> printQueue;
     Queue<String> receivedMessages;
-
+    private Map<String, String> config;
     public PrintRMI() throws RemoteException{
         printQueue = new LinkedList<>();
         receivedMessages = new LinkedList<>();
+        config = new HashMap<>();
     }
 
     @Override
@@ -59,6 +62,16 @@ public class PrintRMI extends UnicastRemoteObject implements PrinterInterface {
 
     }
     @Override
+    public void setConfig(String parameter, String value) throws RemoteException{
+         config.put(parameter, value);
+    }
+
+    @Override
+    public String readConfig(String parameter) throws RemoteException{
+         return config.get(parameter);
+    }
+
+    @Override
     public void start() throws RemoteException{
             printQueue.forEach(Printer::startPrint);
     }
@@ -79,14 +92,7 @@ public class PrintRMI extends UnicastRemoteObject implements PrinterInterface {
         }
         return "Printer: "+printer+" does not exist!";
     }
-    @Override
-    public void readConfig(String parameter) throws RemoteException{
-
-    }
-    @Override
-    public void setConfig(String parameter, String value) throws RemoteException{
-
-    }
+  
 
     public void receiveMessage(String message){
         receivedMessages.add(message);
