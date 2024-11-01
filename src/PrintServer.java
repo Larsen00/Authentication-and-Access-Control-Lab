@@ -1,55 +1,24 @@
-import java.rmi.RemoteException;
 
-public class PrintServer implements PrinterInterface {
-
-  
-    public PrintServer(){
-       
-    }
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 
 
-    @Override
-     public void print(String filename, String printer) throws RemoteException {
-            
-     }
-    @Override
-    public String queue(String printer) throws RemoteException{
+
+public class PrintServer{
+
+    public static void main(String[] args) {
         
-        return null;
+        try {
+
+            PrintRMI prmi = new PrintRMI();
+            Registry registry = LocateRegistry.createRegistry(1099);
+
+            registry.bind("PrinterServer", prmi);
+            System.out.println("Server is ready.");
+            
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
     }
-    @Override
-    public void TopQueue(String printer, int job) throws RemoteException{
-      
-
-    }
-    @Override
-    public void start() throws RemoteException{
-
-    }
-    @Override
-    public void stop() throws RemoteException{
-
-    }
-    @Override
-    public void restart() throws RemoteException{
-
-    }
-    @Override
-    public String status(String printer) throws RemoteException{
-
-        return null;
-
-    }
-    @Override
-    public String readConfig(String parameter) throws RemoteException{
-
-        return null;
-
-    }
-    @Override
-    public void setConfig(String parameter, String value) throws RemoteException{
-
-    }
-
-    
 }
