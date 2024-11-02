@@ -6,16 +6,16 @@ import java.util.LinkedList;
 import java.util.Queue;
 
 public final class Printer  implements Runnable{
-    private String name;
+    public String name;
     private  Queue<PrintJob> queue;
     public Status myStatus;
-    private PrintRMI printServer;
+    private PrintApplication printServer;
     enum Status{
         IDLE,
         PRINTING
     }
 
-    public Printer(String name, PrintRMI server){
+    public Printer(String name, PrintApplication server){
         this.name = name;
         this.myStatus = Status.IDLE;
         this.queue = new LinkedList<>();
