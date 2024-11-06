@@ -16,11 +16,8 @@ public class SessionManager {
     }
 
     public Boolean validateSessionToken(SessionToken sessionToken){
-        if (sessionToken.signature.equals("True")) {
-            return isTrue;
-        }else {
-            return false;
-        }
+       
+        return sessionToken.signature.equals("True");
     }
 
     public User getUser(SessionToken sessionToken) {

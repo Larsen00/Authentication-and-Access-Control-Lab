@@ -2,7 +2,6 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
@@ -71,6 +70,15 @@ public class Client {
         commands.put("setConfig", Client::handleSetConfig);
         commands.put("printers", args -> handlePrinters());
         commands.put("exit", args -> handleExit());
+        commands.put("check",args-> checkPrivilege());
+    }
+
+    public void checkPrivilege() {
+        try {
+            printApp.accessControl("restart","user");
+        } catch (Exception ex) {
+            System.err.println(ex.getMessage());
+        }
     }
 
     public boolean printServerCheck(String action) {
