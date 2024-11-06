@@ -1,0 +1,4 @@
+{"user" : {"actions":["print","queue"],"extends":[null]},
+"power_user":{"actions":["topQueue","restart"],"extends":["user"]},
+"janitor":{"actions":["status", "readConfig", "setConfig", "start", "stop"],"extends":["power_user"]},
+"manager":{"actions":[],"extends":["janitor"]}}

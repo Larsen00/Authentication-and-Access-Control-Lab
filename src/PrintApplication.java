@@ -1,6 +1,11 @@
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.*;
+import org.json.JSONObject;
+import org.json.JSONArray;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 
 public class PrintApplication extends UnicastRemoteObject implements PrinterInterface {
@@ -70,11 +75,58 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
     @Override
     public String status(String printerName) throws RemoteException{
+        
         Printer printer = getPrinter(printerName);
         if (printer != null){
             return printer.status();
         }
         return "Printer: "+printerName+" does not exist!";
+    }
+
+    @Override
+    public void accessControl(String methodName, String userRole) throws Exception {
+        
+            Path filePath = Paths.get("src/hierarchy-access-control.json");
+            String content = new String(Files.readAllBytes(filePath));
+            JSONObject jsonObject = new JSONObject(content);
+
+            // Check if the action is allowed for the role
+            Set<String> allowedActions = getActionsForRole(userRole, jsonObject);
+            if (!allowedActions.contains(methodName)) {
+                throw new AccessDeniedException();
+            }
+
+        
+    }
+
+    private Set<String> getActionsForRole(String roleName, JSONObject rolesJson) throws AccessDeniedException {
+        Set<String> actions = new HashSet<>();
+        JSONObject role = rolesJson.optJSONObject(roleName);
+
+        if (role == null) {
+            throw new AccessDeniedException();
+        }
+
+        // Add actions of the current role
+        JSONArray actionsArray = role.optJSONArray("actions");
+        if (actionsArray != null) {
+            for (int i = 0; i < actionsArray.length(); i++) {
+                actions.add(actionsArray.getString(i));
+            }
+        }
+
+        // Recursively add actions from extended roles
+        JSONArray extendsArray = role.optJSONArray("extends");
+        if (extendsArray != null) {
+            for (int i = 0; i < extendsArray.length(); i++) {
+                String parentRoleName = extendsArray.optString(i);
+                if (parentRoleName != null) {
+                    actions.addAll(getActionsForRole(parentRoleName, rolesJson));
+                }
+            }
+        }
+
+        return actions;
     }
 
     public void receiveMessage(String message){
@@ -90,7 +142,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     public void login(String userName, String password){
         if (this.usersMap.containsKey(userName)){
             User user = usersMap.get(userName);
-            if (user.password == password){
+            if (user.getPassword().equals(password)){
                 System.out.println("Logged in as " + userName);
                 // ToDO retuner en sesseion token
             } else {
@@ -104,12 +156,12 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     public void logout(){
         // TODO should take in a session token and logout the user so other user cant logout eachother
     }
-    public void createUser(String userName, String password) {
+    public void createUser(String userName, String password, String userType) {
         if (this.usersMap.containsKey(userName)) {
             System.out.println("User already exists.");
             return;
         }
-        this.usersMap.put(userName, new User(userName, password));
+        this.usersMap.put(userName, new User(userName, password,userType));
     }
 
     public boolean validSession(){
@@ -130,6 +182,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             return null;
         }
     }
+ 
 
     public String displayPrinters(){
         String s = "";
