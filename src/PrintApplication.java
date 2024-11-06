@@ -85,16 +85,17 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
 
     @Override
     public void accessControl(String methodName, String userRole) throws Exception {
-        
+           
             Path filePath = Paths.get("src/hierarchy-access-control.json");
             String content = new String(Files.readAllBytes(filePath));
             JSONObject jsonObject = new JSONObject(content);
-
+           
             // Check if the action is allowed for the role
             Set<String> allowedActions = getActionsForRole(userRole, jsonObject);
             if (!allowedActions.contains(methodName)) {
                 throw new AccessDeniedException();
             }
+            
 
         
     }
@@ -102,14 +103,14 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     private Set<String> getActionsForRole(String roleName, JSONObject rolesJson) throws AccessDeniedException {
         Set<String> actions = new HashSet<>();
         JSONObject role = rolesJson.optJSONObject(roleName);
-
+        
         if (role == null) {
-            throw new AccessDeniedException();
+            return actions;
         }
 
         // Add actions of the current role
         JSONArray actionsArray = role.optJSONArray("actions");
-        if (actionsArray != null) {
+        if (actionsArray.length() != 0 ) {
             for (int i = 0; i < actionsArray.length(); i++) {
                 actions.add(actionsArray.getString(i));
             }
@@ -117,7 +118,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
 
         // Recursively add actions from extended roles
         JSONArray extendsArray = role.optJSONArray("extends");
-        if (extendsArray != null) {
+        if (extendsArray.length() !=0) {
             for (int i = 0; i < extendsArray.length(); i++) {
                 String parentRoleName = extendsArray.optString(i);
                 if (parentRoleName != null) {
@@ -125,7 +126,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
                 }
             }
         }
-
+        System.out.println(actions);
         return actions;
     }
 
