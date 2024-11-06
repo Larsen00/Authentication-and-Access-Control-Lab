@@ -75,7 +75,7 @@ public class Client {
 
     public void checkPrivilege() {
         try {
-            printApp.accessControl("restart","user");
+            printApp.accessControl("print","power_user");
         } catch (Exception ex) {
             System.err.println(ex.getMessage());
         }
