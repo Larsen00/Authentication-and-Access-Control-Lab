@@ -52,7 +52,6 @@ public class PrintServer{
             System.out.println("Could not bind application");
         }
 
-
         System.out.println("Server is ready.");
     }
     public static void main(String[] args) throws RemoteException {
@@ -79,15 +78,18 @@ public class PrintServer{
         try {
             Path filePath = Paths.get("dummyData/users.json");
             String content = new String(Files.readAllBytes(filePath));
-            JSONObject usersContent = new JSONObject(content);
 
-            JSONArray usersArray = new JSONArray(usersContent);
+            // Start by parsing the content as a JSONArray, not JSONObject
+            JSONArray usersArray = new JSONArray(content);
+
+            // Loop through each user object in the array
             for (int i = 0; i < usersArray.length(); i++) {
                 JSONObject userObj = usersArray.getJSONObject(i);
                 String name = userObj.getString("name");
                 String password = userObj.getString("password");
                 String userType = userObj.getString("userType");
 
+                // Create a new User and add it to the list
                 User user = new User(name, password, userType);
                 users.add(user);
             }
@@ -95,6 +97,7 @@ public class PrintServer{
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return users;
     }
 

@@ -1,6 +1,10 @@
+import java.io.Serial;
+import java.io.Serializable;
 import java.sql.Timestamp;
 
-public class SessionToken {
+public class SessionToken implements Serializable {
+    @Serial
+    private static final long serialVersionUID = 1L;
     private Timestamp timeStamp;
     private byte[] sessionID;
     private User user;
