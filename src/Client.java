@@ -21,11 +21,13 @@ public class Client {
         try {
 
             Client client = new Client();
+
+            Scanner scanner = new Scanner(System.in);
+            client.login(scanner);
             client.setUpCommands();
 
 
 
-            Scanner scanner = new Scanner(System.in);
 
             while (true) {
                 client.displayCommands();
@@ -56,6 +58,25 @@ public class Client {
         }
     }
 
+    public void login(Scanner scanner) throws AccessDeniedException{
+        while(true){
+                System.out.println("User Name");
+                System.out.print(">");
+                String username = scanner.nextLine();
+                
+                System.out.println("Password");
+                System.out.print(">");
+
+                String password = scanner.nextLine();
+                if (checkCredentials(username,password)){
+                    break;
+                }else {System.err.println("User name or password is invalid.");}
+        }
+    }
+
+    public boolean checkCredentials(String username, String password){
+        return true;
+    }
     public void setUpCommands() {
         // Map of commands to corresponding methods
         this.commands = new HashMap<>();
