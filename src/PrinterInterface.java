@@ -15,4 +15,6 @@ public interface PrinterInterface extends Remote {
     public void setConfig(String parameter, String value) throws RemoteException;
     public String displayPrinters() throws  RemoteException;
     public void accessControl(String methodName, String userRole) throws Exception;
+    public SessionToken login(String username, String password) throws PrintAppException;
+
 }

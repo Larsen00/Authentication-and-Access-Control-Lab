@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Alice",
+    "password": "123",
+    "userType": "manager"
+  },
+  {
+    "name": "Bob",
+    "password": "123",
+    "userType": "janitor"
+  },
+  {
+    "name": "Cecilia",
+    "password": "123",
+    "userType": "power_user"
+  },
+  {
+    "name": "David",
+    "password": "123",
+    "userType": "user"
+  },
+  {
+    "name": "Erica",
+    "password": "123",
+    "userType": "user"
+  },
+  {
+    "name": "Fred",
+    "password": "123",
+    "userType": "user"
+  },
+  {
+    "name": "George",
+    "password": "123",
+    "userType": "user"
+  }
+]

@@ -10,15 +10,19 @@ import java.nio.file.Paths;
 
 public class PrintApplication extends UnicastRemoteObject implements PrinterInterface {
 
-    Map<String, Printer> printers;
-    Map<String, User> usersMap;
-    Queue<String> receivedMessages;
+    private Map<String, Printer> printers;
+    private Map<String, User> usersMap;
+    private Queue<String> receivedMessages;
     private Map<String, String> config;
+    private SessionManager sessionManager;
+
+    // Constructor
     public PrintApplication() throws RemoteException{
-        printers = new HashMap<>();
-        usersMap = new HashMap<>();
-        receivedMessages = new LinkedList<>();
-        config = new HashMap<>();
+        this.printers = new HashMap<>();
+        this.usersMap = new HashMap<>();
+        this.receivedMessages = new LinkedList<>();
+        this.config = new HashMap<>();
+        this.sessionManager = new SessionManager();
     }
 
     @Override
@@ -140,23 +144,20 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         }
     }
 
-    public void login(String userName, String password){
-        if (this.usersMap.containsKey(userName)){
+    // Login method that returns a session token if the user is authenticated
+    public SessionToken login(String userName, String password) throws PrintAppException {
+        if (this.usersMap.containsKey(userName)) {
             User user = usersMap.get(userName);
-            if (user.getPassword().equals(password)){
-                System.out.println("Logged in as " + userName);
-                // ToDO retuner en sesseion token
+            if (user.comparePassword(password)) {
+                return sessionManager.newSessionToken(user);
             } else {
-                System.out.println("Incorrect password");
+                throw new PrintAppException("Incorrect password.");
             }
         } else {
-            System.out.println("Username not found");
+            throw new PrintAppException("Username not found.");
         }
     }
 
-    public void logout(){
-        // TODO should take in a session token and logout the user so other user cant logout eachother
-    }
     public void createUser(String userName, String password, String userType) {
         if (this.usersMap.containsKey(userName)) {
             System.out.println("User already exists.");
@@ -183,7 +184,6 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             return null;
         }
     }
- 
 
     public String displayPrinters(){
         String s = "";
@@ -194,5 +194,9 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             i++;
         }
         return s;
+    }
+
+    public void addUser(User user) {
+        usersMap.put(user.getName(), user);
     }
 }

@@ -16,8 +16,9 @@ public class User {
     public String getUserType(){
         return this.userType;
     }
-    public String getPassword(){
-        return this.password;
+
+    public String getName(){
+        return this.name;
     }
 
 }

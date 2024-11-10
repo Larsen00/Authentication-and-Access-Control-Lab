@@ -16,6 +16,7 @@ public class Client {
     }
     private static PrinterInterface printApp;
     private Map<String, RemoteCommand> commands;
+    private  SessionToken sessionToken;
 
     public static void main(String[] args) {
         try {
@@ -54,6 +55,11 @@ public class Client {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void loginScreen() {
+        this.commands = new HashMap<>();
+        commands.put("login", Client::handleLogin);
     }
 
     public void setUpCommands() {
@@ -197,5 +203,20 @@ public class Client {
 
     private static void handlePrinters() throws RemoteException {
         System.out.println(printApp.displayPrinters());
+    }
+
+    private void handleLogin(String[] args) throws RemoteException {
+        if (args.length == 3) {
+            try {
+                if (this.printApp == null) {
+                    handleStart(args[1], args[2], false);
+                }
+                this.sessionToken = printApp.login(args[1], args[2]);
+            } catch (PrintAppException e) {
+                System.out.println(e.getMessage());
+            }
+        } else {
+            System.out.println("Usage: login <username> <password>");
+        }
     }
 }
