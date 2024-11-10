@@ -1,21 +1,19 @@
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Scanner;
+import java.util.*;
 
 public class Client {
 
     // Custom functional interface that allows RemoteException
     @FunctionalInterface
     interface RemoteCommand {
-        void execute(String[] args) throws RemoteException, NotBoundException;
+        void execute(String[] args) throws RemoteException, NotBoundException, PrintAppException;
     }
-    private static PrinterInterface printApp;
+    private PrinterInterface printApp;
     private Map<String, RemoteCommand> commands;
+    private SessionToken sessionToken;
+    private ArrayList<String> printAppResponse = new ArrayList<>();
+    private Boolean showMenu = true;
 
     public static void main(String[] args) {
         try {
@@ -24,13 +22,13 @@ public class Client {
 
             Scanner scanner = new Scanner(System.in);
             client.login(scanner);
+            client.printApplicationMessage();
             client.setUpCommands();
 
-
-
-
-            while (true) {
+            while (client.showMenu) {
+                System.out.println();
                 client.displayCommands();
+                client.printAppResponse = new ArrayList<>();
                 System.out.print("\n> ");
                 String input = scanner.nextLine();
                 String[] parts = input.trim().split("\\s+");
@@ -42,12 +40,17 @@ public class Client {
                     try {
                         if (client.printServerCheck(command)){
                             action.execute(parts);
+                            client.printApplicationMessage();
                         }
                     } catch (RemoteException e) {
                         System.err.println("An error occurred while executing the command:");
                         e.printStackTrace();
                     } catch (NumberFormatException e) {
                         System.err.println("Invalid number format: " + e.getMessage());
+                    } catch (PrintAppException e) {
+                        client.printApplicationMessage();
+                        System.err.println(e.getMessage());
+                        System.out.println();
                     }
                 } else {
                     System.out.println("Unknown command. Please try again.");
@@ -58,37 +61,49 @@ public class Client {
         }
     }
 
-    public void login(Scanner scanner) throws AccessDeniedException{
-        while(true){
-                System.out.println("User Name");
-                System.out.print(">");
-                String username = scanner.nextLine();
-                
-                System.out.println("Password");
-                System.out.print(">");
-
-                String password = scanner.nextLine();
-                if (checkCredentials(username,password)){
-                    break;
-                }else {System.err.println("User name or password is invalid.");}
+    public void printApplicationMessage() {
+        if (this.printAppResponse.isEmpty()) {
+            return;
+        }
+        System.out.println("\nApplication Message:");
+        for (String message : this.printAppResponse) {
+            System.out.println(message);
         }
     }
 
-    public boolean checkCredentials(String username, String password){
-        return true;
+    public void login(Scanner scanner) throws  RemoteException{
+        while(true){
+            System.out.println("User Name");
+            System.out.print(">");
+            String username = scanner.nextLine();
+
+            System.out.println("Password");
+            System.out.print(">");
+
+            String password = scanner.nextLine();
+            try {
+                if (this.printApp == null && handleStart(username, password, false)) {
+                    break;
+                }
+                this.sessionToken = printApp.login(username, password);
+            } catch (PrintAppException e) {
+                System.out.println(e.getMessage());
+            }
+        }
     }
+
     public void setUpCommands() {
         // Map of commands to corresponding methods
         this.commands = new HashMap<>();
-        commands.put("print", Client::handlePrint);
-        commands.put("queue", Client::handleQueue);
-        commands.put("top", Client::handleTopQueue);
-        commands.put("start", args -> handleStart());
-        commands.put("stop", args -> handleStop());
-        commands.put("status", Client::handleStatus);
+        commands.put("print", this::handlePrint);
+        commands.put("queue", this::handleQueue);
+        commands.put("top", this::handleTopQueue);
+        commands.put("start", args -> handleStart(null, null, false));
+        commands.put("stop", args -> handleStop(false));
+        commands.put("status", this::handleStatus);
         commands.put("restart", args -> handleRestart());
-        commands.put("readConfig", Client::handleReadConfig);
-        commands.put("setConfig", Client::handleSetConfig);
+        commands.put("readConfig", this::handleReadConfig);
+        commands.put("setConfig", this::handleSetConfig);
         commands.put("printers", args -> handlePrinters());
         commands.put("exit", args -> handleExit());
         commands.put("check",args-> checkPrivilege());
@@ -119,104 +134,96 @@ public class Client {
         }
     }
 
-    private static void handlePrint(String[] args) throws RemoteException {
+    private void handlePrint(String[] args) throws RemoteException, PrintAppException {
         if (args.length == 3) {
-            printApp.print(args[1], args[2]);
+            printApp.print(args[1], args[2], this.sessionToken);
         } else {
             System.out.println("Usage: print <filename> <printer>");
         }
     }
 
-    private static void handleQueue(String[] args) throws RemoteException {
+    private void handleQueue(String[] args) throws RemoteException, PrintAppException {
         if (args.length == 2) {
-            Queue<PrintJob> queue = printApp.queue(args[1]);
+            Queue<PrintJob> queue = printApp.queue(args[1], this.sessionToken);
             System.out.println("Queue for " + args[1] + ": " + queue);
         } else {
             System.out.println("Usage: queue <printer>");
         }
     }
 
-    private static void handleTopQueue(String[] args) throws RemoteException {
+    private void handleTopQueue(String[] args) throws RemoteException, PrintAppException {
         if (args.length == 3) {
             int job = Integer.parseInt(args[2]);
-            printApp.TopQueue(args[1], job);
+            printApp.TopQueue(args[1], job, this.sessionToken);
         } else {
             System.out.println("Usage: top <printer> <job>");
         }
     }
 
-    private static void handleStart() {
-        Registry registry;
+    private boolean handleStart(String username, String password, Boolean restart) throws RemoteException  {
         try {
-            // Connect to the registry
-            registry = LocateRegistry.getRegistry("localhost", 1099);
-            printApp = (PrinterInterface) registry.lookup("PrinterServer");
-            System.out.println("Server was already running");
-        } catch (RemoteException | NotBoundException err) {
-            System.out.println("..starting server");
-            try {
-                PrintServer printServer = new PrintServer(); // Will start the new server
-                registry = LocateRegistry.getRegistry("localhost", 1099);
-                printApp = (PrinterInterface) registry.lookup("PrinterServer");
-            } catch (RemoteException e) {
-                System.out.println("Could not find port");
-            } catch (NotBoundException e) {
-                System.out.println(("Could not find Server"));
-            }
+            PrintApplication printAppInstance = new PrintApplication();
+            Response<PrinterInterface> response = printAppInstance.start(username, password, this.sessionToken, restart);
+            this.printAppResponse.add(response.getMessage());
+            this.sessionToken = response.getSessionToken();
+            printApp = response.getData();
+            return true;
+        } catch (PrintAppException e) {
+            System.out.println(e.getMessage());
+            return false;
         }
     }
 
-
-    private static void handleStop() {
-
+    private void handleStop(Boolean restart) throws RemoteException {
         try {
-            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            registry.unbind("PrinterServer");
-            printApp = null;
-            System.out.println("Server is shutting down...");
-        } catch (NotBoundException | RemoteException e) {
-            System.out.println("Server was not running");
+            Response<Void> response = printApp.stop(this.sessionToken, restart);
+            this.printAppResponse.add(response.getMessage());
+            this.printApp = null;
+        } catch (PrintAppException e) {
+            System.out.println(e.getMessage());
         }
     }
 
-    private static void handleStatus(String[] args) throws RemoteException {
+    private void handleStatus(String[] args) throws RemoteException, PrintAppException {
         if (args.length == 2) {
-            String status = printApp.status(args[1]);
+            String status = this.printApp.status(args[1], this.sessionToken);
             System.out.println("Status: " + status);
         } else {
             System.out.println("Usage: status <printer>");
         }
     }
 
-    private static void handleRestart() throws RemoteException {
-        handleStop();
-        handleStart();
+    private void handleRestart() throws RemoteException {
+        this.handleStop(true);
+        if (!this.handleStart(null, null, true)) {
+            System.out.println("Could not restart the server.");
+        }
     }
 
-    private static void handleReadConfig(String[] args) throws RemoteException {
+    private void handleReadConfig(String[] args) throws RemoteException, PrintAppException {
         if (args.length == 2) {
-            String config = printApp.readConfig(args[1]);
+            String config = this.printApp.readConfig(args[1], this.sessionToken);
             System.out.println("Config value: " + config);
         } else {
             System.out.println("Usage: readConfig <parameter>");
         }
     }
 
-    private static void handleSetConfig(String[] args) throws RemoteException {
+    private void handleSetConfig(String[] args) throws RemoteException, PrintAppException {
         if (args.length == 3) {
-            printApp.setConfig(args[1], args[2]);
+            this.printApp.setConfig(args[1], args[2], this.sessionToken);
             System.out.println("Config set successfully.");
         } else {
             System.out.println("Usage: setConfig <parameter> <value>");
         }
     }
 
-    private static void handleExit() {
+    private void handleExit() {
         System.out.println("Exiting...");
-        System.exit(0);
+        this.showMenu = false;
     }
 
-    private static void handlePrinters() throws RemoteException {
-        System.out.println(printApp.displayPrinters());
+    private void handlePrinters() throws RemoteException {
+        System.out.println(this.printApp.displayPrinters());
     }
 }

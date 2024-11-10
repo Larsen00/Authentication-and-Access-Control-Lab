@@ -1,10 +1,18 @@
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.rmi.AlreadyBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
-import java.util.Scanner;
 
 
 public class PrintServer{
@@ -17,9 +25,14 @@ public class PrintServer{
             System.out.println("Could not create Printer application");
             return;
         }
-
-        for (Printer p : dummyPrinters(printApp)){
+        // Load printers
+        for (Printer p : loadPrintersFromFile(printApp)){
             printApp.registerPrinter(p);
+        }
+
+        // Load users
+        for (User u : loadUsers()){
+            printApp.addUser(u);
         }
         Registry registry;
         try {
@@ -39,22 +52,55 @@ public class PrintServer{
             System.out.println("Could not bind application");
         }
 
-
         System.out.println("Server is ready.");
     }
     public static void main(String[] args) throws RemoteException {
         new PrintServer();
     }
-    public static ArrayList<Printer> dummyPrinters(PrintApplication server) {
+    public static ArrayList<Printer> loadPrintersFromFile(PrintApplication server) {
         ArrayList<Printer> printers = new ArrayList<>();
+        String fileName = "dummyData/dummyPrinters.txt";
 
-        // Create four dummy printers with unique names
-        printers.add(new Printer("Printer1", server));
-        printers.add(new Printer("Printer2", server));
-        printers.add(new Printer("Printer3", server));
-        printers.add(new Printer("Printer4", server));
-
+        try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                printers.add(new Printer(line.trim(), server));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return printers;
     }
+
+    public static ArrayList<User> loadUsers() {
+        ArrayList<User> users = new ArrayList<>();
+
+        try {
+            Path filePath = Paths.get("dummyData/users.json");
+            String content = new String(Files.readAllBytes(filePath));
+
+            // Start by parsing the content as a JSONArray, not JSONObject
+            JSONArray usersArray = new JSONArray(content);
+
+            // Loop through each user object in the array
+            for (int i = 0; i < usersArray.length(); i++) {
+                JSONObject userObj = usersArray.getJSONObject(i);
+                String name = userObj.getString("name");
+                String password = userObj.getString("password");
+                String userType = userObj.getString("userType");
+
+                // Create a new User and add it to the list
+                User user = new User(name, password, userType);
+                users.add(user);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return users;
+    }
+
+
 
 }
