@@ -64,7 +64,7 @@ public class PrintServer{
         try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                printers.add(new Printer(line.trim(), server));
+                printers.add(new Printer(line.trim()));
             }
         } catch (Exception e) {
             e.printStackTrace();

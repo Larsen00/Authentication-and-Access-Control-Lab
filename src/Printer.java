@@ -2,24 +2,31 @@
 
 
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 
 public final class Printer  implements Runnable{
     public String name;
     private  Queue<PrintJob> queue;
     public Status myStatus;
-    private PrintApplication printServer;
+
+    @Override
+    public void run() {
+        processQueue();
+    }
+
     enum Status{
         IDLE,
         PRINTING
     }
 
-    public Printer(String name, PrintApplication server){
+    public Printer(String name){
         this.name = name;
         this.myStatus = Status.IDLE;
         this.queue = new LinkedList<>();
-        this.printServer=server;
         new Thread(this).start();
     }
 
@@ -27,8 +34,11 @@ public final class Printer  implements Runnable{
         return this.name;
     }
     public void print(String filename){
-        PrintJob newjob = new PrintJob(filename,queue.size()+1);
-        this.queue.add(newjob);
+        PrintJob newJob = new PrintJob(filename,queue.size()+1);
+        this.queue.add(newJob);
+        if (myStatus == Status.IDLE) {
+            myStatus = Status.PRINTING;
+        }
     }
     public Queue<PrintJob> queue(){
         return this.queue;
@@ -63,53 +73,35 @@ public final class Printer  implements Runnable{
         return null;
        
     }
-    public void startPrint(){
-        myStatus = Status.PRINTING;
-
-    }
-
-    public void stop(){
-        myStatus = Status.IDLE;
-    }
-
-    @Override
-    public void run(){
-        processQueue();
-    }
-
-    public void sendMessageToServer(String message){
-        try {
-            printServer.receiveMessage(message);
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     public void processQueue() {
+        String filepath = "prints/print.txt";
+        new java.io.File("prints").mkdirs(); // Ensure directory exists
+
         while (true) {
             if (myStatus == Status.PRINTING) {
-                
-                PrintJob job = queue.poll();
-                if (job != null) {
-                    sendMessageToServer("Printing job: " + job.getFilename());
+                try {
+                    Thread.sleep(10000); // Simulate printing delay
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
                 }
 
-               
-                myStatus = queue.isEmpty() ? Status.IDLE : Status.PRINTING;
+                PrintJob job = queue.poll();
+                if (job != null) {
+                    // Use try-with-resources to open, write, and close the file each time
+                    try (FileWriter writer = new FileWriter(filepath, true)) { // Open in append mode
+                        writer.write("Job id: " + job.getJobNumber() +
+                                " Filename: " + job.getFilename() +
+                                " Printed by: " + name + System.lineSeparator());
+                        writer.flush(); // Ensure data is written to the file
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error writing job to file", e);
+                    }
+                }
             }
-
-            
-            try {
-                Thread.sleep(1000); 
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
+            // Update status based on queue state
+            myStatus = queue.isEmpty() ? Status.IDLE : Status.PRINTING;
         }
-
     }
-   
-
-
 }

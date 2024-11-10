@@ -19,7 +19,6 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
 
     private final Map<String, Printer> printers;
     private final Map<String, User> usersMap;
-    private Queue<String> receivedMessages;
     private Map<String, String> config;
     private SessionManager sessionManager;
 
@@ -27,7 +26,6 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     public PrintApplication() throws RemoteException{
         this.printers = new HashMap<>();
         this.usersMap = new HashMap<>();
-        this.receivedMessages = new LinkedList<>();
         this.config = new HashMap<>();
         this.sessionManager = new SessionManager();
     }
@@ -153,17 +151,6 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         }
         return actions;
     }
-
-    public void receiveMessage(String message){
-        receivedMessages.add(message);
-        printMessages();
-    }
-    public void printMessages(){
-        while(!receivedMessages.isEmpty()){
-            System.err.println(receivedMessages.poll());
-        }
-    }
-
     // Login method that returns a session token if the user is authenticated
     public SessionToken login(String userName, String password) throws PrintAppException {
         if (this.usersMap.containsKey(userName)) {
