@@ -99,7 +99,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
     public void validateSession(SessionToken sessionToken) throws PrintAppException {
         if (!this.sessionManager.validateSessionToken(sessionToken)) {
-            throw new PrintAppException("Session token is invalid");
+            throw new PrintAppException("Session expired. Please login again.");
         }
     }
 
@@ -177,7 +177,8 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         }
     }
 
-    public String displayPrinters(){
+    public String displayPrinters(SessionToken sessionToken) throws PrintAppException {
+        validateSession(sessionToken);
         StringBuilder s = new StringBuilder();
         s.append("Displaying Printers:");
         int i = 1;
