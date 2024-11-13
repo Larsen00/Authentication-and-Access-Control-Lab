@@ -99,7 +99,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         }
         System.out.println(allowedActions); 
         if (!allowedActions.contains(methodName)) {
-            throw new PrintAppException("Incorrect password.");
+            throw new PrintAppException("This Action is not authorized, management has been notifed");
         }
     }
     public void validateSession(SessionToken sessionToken) throws PrintAppException {
@@ -135,7 +135,6 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         if (role == null) {
             return actions;
         }
-
         // Add actions of the current role
         JSONArray actionsArray = role.optJSONArray("actions");
         if (actionsArray.length() != 0 ) {
@@ -150,7 +149,11 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             for (int i = 0; i < extendsArray.length(); i++) {
                 String parentRoleName = extendsArray.optString(i);
                 if (parentRoleName != null) {
-                    actions.addAll(getActionsForRole(parentRoleName, rolesJson));
+                    
+                    Set<String> new_actions = getActionsForRole(parentRoleName,rolesJson);
+                    if (new_actions!=null){
+                        actions.addAll(new_actions);
+                    }
                 }
             }
         }
