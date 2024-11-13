@@ -11,6 +11,7 @@ import org.json.JSONArray;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import static java.util.stream.Collectors.toSet;
 
 
 public class PrintApplication extends UnicastRemoteObject implements PrinterInterface {
@@ -30,6 +31,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         this.sessionManager = new SessionManager();
     }
 
+    @Override
     public void print(String filename, String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
         authenticateAction("print", sessionToken);
         Printer printer = getPrinter(printerName);
@@ -79,7 +81,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         return "Printer: "+printerName+" does not exist!";
     }
 
-    public void accessControl(String methodName, String userRole) throws PrintAppException {
+    public void accessControl(String methodName, String[] userRole) throws PrintAppException {
            
         Path filePath = Paths.get("src/hierarchy-access-control.json");
         String content = null;
@@ -91,8 +93,11 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         JSONObject jsonObject = new JSONObject(content);
            
         // Check if the action is allowed for the role
-        Set<String> allowedActions = null;
-        allowedActions = getActionsForRole(userRole, jsonObject);
+        Set<String> allowedActions =new HashSet<>();
+        for(String role: userRole){
+            allowedActions.addAll(getActionsForRole(role, jsonObject));
+        }
+        System.out.println(allowedActions); 
         if (!allowedActions.contains(methodName)) {
             throw new PrintAppException("Incorrect password.");
         }
@@ -176,7 +181,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             throw new PrintAppException("Printer: "+name+" does not exist!");
         }
     }
-
+    
     public String displayPrinters(SessionToken sessionToken) throws PrintAppException {
         validateSession(sessionToken);
         StringBuilder s = new StringBuilder();

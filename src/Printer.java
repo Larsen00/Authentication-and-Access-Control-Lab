@@ -6,7 +6,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
 
 public final class Printer  implements Runnable{
     public String name;
@@ -64,9 +63,9 @@ public final class Printer  implements Runnable{
     public String status(){
         switch(myStatus) {
                 
-            case IDLE ->{ return "Printer: "+this.name+" is ready to print!";}
+            case IDLE :{ return "Printer: "+this.name+" is ready to print!";}
             
-            case PRINTING -> {
+            case PRINTING : {
                 return "Printer: "+this.name+" is currently printing...";
             }
         }

@@ -1,4 +1,3 @@
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -87,8 +86,11 @@ public class PrintServer{
                 JSONObject userObj = usersArray.getJSONObject(i);
                 String name = userObj.getString("name");
                 String password = userObj.getString("password");
-                String userType = userObj.getString("userType");
-
+                JSONArray userTypeArray = userObj.getJSONArray("userType");
+                String[] userType = new String[userTypeArray.length()];
+                for (int j = 0; j < userTypeArray.length(); j++) {
+                    userType[j] = userTypeArray.getString(j);
+                }
                 // Create a new User and add it to the list
                 User user = new User(name, password, userType);
                 users.add(user);
@@ -100,7 +102,4 @@ public class PrintServer{
 
         return users;
     }
-
-
-
 }
