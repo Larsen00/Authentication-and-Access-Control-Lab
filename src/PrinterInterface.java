@@ -12,7 +12,7 @@ public interface PrinterInterface extends Remote {
     public String status(String printer, SessionToken sessionToken) throws RemoteException, PrintAppException;
     public String readConfig(String parameter, SessionToken sessionToken) throws RemoteException, PrintAppException;
     public void setConfig(String parameter, String value, SessionToken sessionToken) throws RemoteException, PrintAppException;
-    public String displayPrinters() throws  RemoteException;
+    public String displayPrinters(SessionToken sessionToken) throws  RemoteException, PrintAppException;
     public void accessControl(String methodName, String userRole) throws Exception;
     public SessionToken login(String username, String password) throws PrintAppException, RemoteException;
     SessionToken authenticateUser(String username, String password, SessionToken sessionToken, String action) throws PrintAppException, RemoteException;
