@@ -98,9 +98,16 @@ public class Client {
                 if (this.printApp == null && handleStart(username, password, false)) {
                     this.sessionToken = printApp.login(username, password);
                     this.screen = ScreenState.MENU;
+                    System.out.println("Login successful.");
                     break;
+                } else if (this.printApp != null) {
+                    this.sessionToken = this.printApp.login(username, password);
+                    this.screen = ScreenState.MENU;
+                    System.out.println("Login successful.");
+                    break;
+                } else {
+                    System.out.println("Login failed. Please try again.");
                 }
-                System.out.println("Login successful.");
             } catch (PrintAppException e) {
                 System.out.println(e.getMessage());
             }
