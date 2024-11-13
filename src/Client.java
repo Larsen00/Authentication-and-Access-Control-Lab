@@ -19,58 +19,55 @@ public class Client {
         EXIT
     }
 
+
     private ScreenState screen = ScreenState.LOGIN_SCREEN;
 
     public static void main(String[] args) {
+        Client client = new Client();
+
         try {
-            Client client = new Client();
-            Scanner scanner = new Scanner(System.in);
-
-            while(client.screen != Client.ScreenState.EXIT) {
-
+            while (client.screen != Client.ScreenState.EXIT) {
+                client.printAppResponse = new ArrayList<>();
                 if (client.screen == Client.ScreenState.LOGIN_SCREEN) {
-
-                    client.login(scanner);
-                    client.printApplicationMessage();
-                    client.setUpCommands();
-
-                } else if (client.screen == Client.ScreenState.MENU) {
-                    System.out.println();
+                    client.setUpLoginCommands();
                     client.displayCommands();
-                    client.printAppResponse = new ArrayList<>();
-                    System.out.print("\n> ");
-                    String input = scanner.nextLine();
-                    String[] parts = input.trim().split("\\s+");
-                    String command = parts[0];
-                    System.out.println();
-
-                    RemoteCommand action = client.commands.get(command);
-                    if (action != null) {
-                        try {
-                            if (client.printServerCheck(command)) {
-                                action.execute(parts);
-                                client.printApplicationMessage();
-                            }
-                        } catch (RemoteException e) {
-                            System.err.println("An error occurred while executing the command:");
-                            e.printStackTrace();
-                        } catch (NumberFormatException e) {
-                            System.err.println("Invalid number format: " + e.getMessage());
-                        } catch (PrintAppException e) {
-                            client.printApplicationMessage();
-                            System.err.println(e.getMessage());
-                            System.out.println();
-                            if (e.getMessage().equals("Session expired. Please login again.")) {
-                                client.screen = ScreenState.LOGIN_SCREEN;
-                            }
-                        }
-                    } else {
-                        System.out.println("Unknown command. Please try again.");
-                    }
+                    client.handleCommand();
+                } else if (client.screen == Client.ScreenState.MENU) {
+                    client.setUpCommands();
+                    client.displayCommands();
+                    client.handleCommand();
                 }
             }
-        } catch (Exception e) {
+        } catch(RemoteException e){
+            System.err.println("An error occurred while executing the command:");
             e.printStackTrace();
+        } catch(NumberFormatException e){
+            System.err.println("Invalid number format: " + e.getMessage());
+        } catch(PrintAppException e){
+            client.printApplicationMessage();
+            System.err.println(e.getMessage());
+            System.out.println();
+            if (e.getMessage().equals("Session expired. Please login again.")) {
+                client.screen = ScreenState.LOGIN_SCREEN;
+            }
+        } catch (NotBoundException e) {
+            System.err.println("Error when trying to bind the server: " + e.getMessage());
+        }
+    }
+
+    private void handleCommand() throws NotBoundException, PrintAppException, RemoteException {
+        Scanner scanner = new Scanner(System.in);
+        String input = scanner.nextLine();
+        String[] parts = input.trim().split("\\s+");
+        String command = parts[0];
+        RemoteCommand action = this.commands.get(command);
+        if (action != null) {
+            if (this.screen == ScreenState.LOGIN_SCREEN || this.printServerCheck(command) ) {
+                action.execute(parts);
+                this.printApplicationMessage();
+            }
+        } else {
+            System.out.println("Unknown command. Please try again.");
         }
     }
 
@@ -84,33 +81,30 @@ public class Client {
         }
     }
 
-    public void login(Scanner scanner) throws  RemoteException{
-        while(true){
-            System.out.println("User Name");
-            System.out.print(">");
-            String username = scanner.nextLine();
+    public void login() throws  RemoteException{
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("User Name");
+        System.out.print(">");
+        String username = scanner.nextLine();
 
-            System.out.println("Password");
-            System.out.print(">");
+        System.out.println("Password");
+        System.out.print(">");
 
-            String password = scanner.nextLine();
-            try {
-                if (this.printApp == null && handleStart(username, password, false)) {
-                    this.sessionToken = printApp.login(username, password);
-                    this.screen = ScreenState.MENU;
-                    System.out.println("Login successful.");
-                    break;
-                } else if (this.printApp != null) {
-                    this.sessionToken = this.printApp.login(username, password);
-                    this.screen = ScreenState.MENU;
-                    System.out.println("Login successful.");
-                    break;
-                } else {
-                    System.out.println("Login failed. Please try again.");
-                }
-            } catch (PrintAppException e) {
-                System.out.println(e.getMessage());
+        String password = scanner.nextLine();
+        try {
+            if (this.printApp == null && handleStart(username, password, false)) {
+                this.sessionToken = printApp.login(username, password);
+                this.screen = ScreenState.MENU;
+                System.out.println("Login successful.");
+            } else if (this.printApp != null) {
+                this.sessionToken = this.printApp.login(username, password);
+                this.screen = ScreenState.MENU;
+                System.out.println("Login successful.");
+            } else {
+                System.out.println("Login failed. Please try again.");
             }
+        } catch (PrintAppException e) {
+            System.out.println(e.getMessage());
         }
     }
 
@@ -131,6 +125,24 @@ public class Client {
         commands.put("logout", args -> handleLogout());
     }
 
+    public void displayCommands() {
+        System.out.println("Available commands:");
+        int index = 1;
+        for (String command : commands.keySet()) {
+            System.out.println(index + ". " + command);
+            index++;
+        }
+        System.out.println();
+        System.out.print("\n> ");
+    }
+
+    public void setUpLoginCommands() {
+        // Map of commands to corresponding methods
+        this.commands = new HashMap<>();
+        commands.put("login", args -> login());
+        commands.put("exit", args -> handleExit());
+    }
+
     private void handleLogout() {
         this.sessionToken = null;
         this.screen = ScreenState.LOGIN_SCREEN;
@@ -144,14 +156,6 @@ public class Client {
         return true;
     }
 
-    public void displayCommands() {
-        System.out.println("Available commands:");
-        int index = 1;
-        for (String command : commands.keySet()) {
-            System.out.println(index + ". " + command);
-            index++;
-        }
-    }
 
     private void handlePrint(String[] args) throws RemoteException, PrintAppException {
         if (args.length == 3) {
