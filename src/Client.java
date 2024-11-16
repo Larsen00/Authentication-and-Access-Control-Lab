@@ -38,6 +38,7 @@ public class Client {
                     client.handleCommand();
                 }
             }
+        System.exit(0); //Exit application
         } catch(RemoteException e){
             System.err.println("An error occurred while executing the command:");
             e.printStackTrace();
