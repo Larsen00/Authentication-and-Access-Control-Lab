@@ -25,35 +25,35 @@ public class Client {
     public static void main(String[] args) {
         Client client = new Client();
 
-        try {
+
             while (client.screen != Client.ScreenState.EXIT) {
-                client.printAppResponse = new ArrayList<>();
-                if (client.screen == Client.ScreenState.LOGIN_SCREEN) {
-                    client.setUpLoginCommands();
-                    client.displayCommands();
-                    client.handleCommand();
-                } else if (client.screen == Client.ScreenState.MENU) {
-                    client.setUpCommands();
-                    client.displayCommands();
-                    client.handleCommand();
+                try {
+                    client.printAppResponse = new ArrayList<>();
+                    if (client.screen == Client.ScreenState.LOGIN_SCREEN) {
+                        client.setUpLoginCommands();
+                        client.displayCommands();
+                        client.handleCommand();
+                    } else if (client.screen == Client.ScreenState.MENU) {
+                        client.setUpCommands();
+                        client.displayCommands();
+                        client.handleCommand();
+                    }
+                } catch(RemoteException e){
+                    System.err.println("An error occurred while executing the command:");
+                    e.printStackTrace();
+                } catch(NumberFormatException e){
+                    System.err.println("Invalid number format: " + e.getMessage());
+                } catch(PrintAppException e){
+                    System.err.println(e.getMessage());
+                    System.out.println();
+                    if (e.getMessage().equals("Session expired. Please login again.")) {
+                        client.screen = ScreenState.LOGIN_SCREEN;
+                    }
+                } catch (NotBoundException e) {
+                    System.err.println("Error when trying to bind the server: " + e.getMessage());
                 }
             }
         System.exit(0); //Exit application
-        } catch(RemoteException e){
-            System.err.println("An error occurred while executing the command:");
-            e.printStackTrace();
-        } catch(NumberFormatException e){
-            System.err.println("Invalid number format: " + e.getMessage());
-        } catch(PrintAppException e){
-            client.printApplicationMessage();
-            System.err.println(e.getMessage());
-            System.out.println();
-            if (e.getMessage().equals("Session expired. Please login again.")) {
-                client.screen = ScreenState.LOGIN_SCREEN;
-            }
-        } catch (NotBoundException e) {
-            System.err.println("Error when trying to bind the server: " + e.getMessage());
-        }
     }
 
     private void handleCommand() throws NotBoundException, PrintAppException, RemoteException {
@@ -82,7 +82,7 @@ public class Client {
         }
     }
 
-    public void login() throws  RemoteException{
+    public void login() throws RemoteException, PrintAppException {
         Scanner scanner = new Scanner(System.in);
         System.out.println("User Name");
         System.out.print(">");
@@ -92,20 +92,34 @@ public class Client {
         System.out.print(">");
 
         String password = scanner.nextLine();
-        try {
-            if (this.printApp == null && handleStart(username, password, false)) {
-                this.sessionToken = printApp.login(username, password);
+        PrinterInterface printAppInstance;
+        if (printApp == null) {
+            printAppInstance = new PrintApplication();
+        } else {
+            printAppInstance = this.printApp;
+        }
+
+        Response<PrinterInterface> response = printAppInstance.login(username, password);
+        this.printAppResponse.add(response.getMessage());
+        if (response.getData() != null && this.printApp == null){
+            this.printApp = response.getData();
+        }
+        if (response.getData() != null) {
+            try {
+                response = this.printApp.connect(username, password, null);
+                this.printAppResponse.add(response.getMessage());
+                this.printApp = response.getData();
+                this.sessionToken = response.getSessionToken();
                 this.screen = ScreenState.MENU;
-                System.out.println("Login successful.");
-            } else if (this.printApp != null) {
-                this.sessionToken = this.printApp.login(username, password);
-                this.screen = ScreenState.MENU;
-                System.out.println("Login successful.");
-            } else {
-                System.out.println("Login failed. Please try again.");
+            } catch (RemoteException e) {
+                if (this.printApp.isAllowedToStartServer(username)) {
+                    this.handleStart(username, password, false);
+                    this.screen = ScreenState.MENU;
+                } else {
+                    System.out.println("Server not running, contact user with admin rights to start the server.");
+                }
             }
-        } catch (PrintAppException e) {
-            System.out.println(e.getMessage());
+
         }
     }
 

@@ -1,6 +1,10 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.Serial;
+import java.rmi.AlreadyBoundException;
 import java.rmi.NotBoundException;
+import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -11,7 +15,6 @@ import org.json.JSONArray;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import static java.util.stream.Collectors.toSet;
 
 
 public class PrintApplication extends UnicastRemoteObject implements PrinterInterface {
@@ -22,6 +25,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     private final Map<String, User> usersMap;
     private Map<String, String> config;
     private SessionManager sessionManager;
+    private Boolean hasLoadedDummyData = false;
 
     // Constructor
     public PrintApplication() throws RemoteException{
@@ -97,9 +101,10 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         for(String role: userRole){
             allowedActions.addAll(getActionsForRole(role, jsonObject));
         }
-        System.out.println(allowedActions); 
+
+        // System.out.println(allowedActions);
         if (!allowedActions.contains(methodName)) {
-            throw new PrintAppException("This Action is not authorized, management has been notifed");
+            throw new PrintAppException("This Action ("+ methodName+") is not authorized");
         }
     }
     public void validateSession(SessionToken sessionToken) throws PrintAppException {
@@ -109,9 +114,14 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
 
     // Should be used as a dynamic function to check if the user is authenticated either by session token or by username and password
-    public SessionToken authenticateUser(String username, String password, SessionToken sessionToken, String action) throws PrintAppException {
+    public SessionToken authenticateUser(String username, String password, SessionToken sessionToken, String action) throws PrintAppException, RemoteException {
         if (sessionToken == null) {
-           sessionToken = login(username, password);
+           Response<PrinterInterface> response = login(username, password);
+           if (response.getData() != null) { // means login was successful and a server is running
+               sessionToken = sessionManager.newSessionToken(usersMap.get(username));
+           } else {
+               return null;
+           }
         }
         validateSession(sessionToken);
         User user = sessionToken.getUser();
@@ -127,7 +137,15 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         accessControl(action, user.getUserType());
     }
 
-
+    public boolean isAllowedToStartServer(String username) throws RemoteException {
+        User user = usersMap.get(username);
+        try {
+            accessControl("start", user.getUserType());
+            return true;
+        } catch (PrintAppException e) {
+            return false;
+        }
+    }
     private Set<String> getActionsForRole(String roleName, JSONObject rolesJson)   {
         Set<String> actions = new HashSet<>();
         JSONObject role = rolesJson.optJSONObject(roleName);
@@ -159,19 +177,37 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         }
         return actions;
     }
-    // Login method that returns a session token if the user is authenticated
-    public SessionToken login(String userName, String password) throws PrintAppException {
-        if (this.usersMap.containsKey(userName)) {
-            User user = usersMap.get(userName);
-            if (user.comparePassword(password)) {
-                return sessionManager.newSessionToken(user);
-            } else {
-                throw new PrintAppException("Incorrect password.");
+
+    private void loadData(){
+        if (!this.hasLoadedDummyData) {
+            // Load users
+            for (User u : loadUsers()) {
+                this.addUser(u);
             }
-        } else {
-            throw new PrintAppException("Username not found.");
+            // Load printers
+            for (Printer p : loadPrintersFromFile()) {
+                this.registerPrinter(p);
+            }
+            this.hasLoadedDummyData = true;
         }
     }
+    // Login method that returns a session token if the user is authenticated
+    public Response<PrinterInterface> login(String userName, String password) throws PrintAppException {
+        this.loadData();
+
+        if (!this.usersMap.containsKey(userName)) {
+            return new Response<>(null, "User does not exist", null);
+        }
+
+        User user = usersMap.get(userName);
+
+        if (!user.comparePassword(password)) {
+            return new Response<>(null, "Password is incorrect", null);
+        }
+
+        return new Response<>(this, "Login successful", null);
+    }
+
 
     public void registerPrinter(Printer p) {
         printers.put(p.name, p);
@@ -201,43 +237,122 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         usersMap.put(user.getName(), user);
     }
 
-    public Response<PrinterInterface> start(String username, String password, SessionToken sessionToken, boolean restart) throws PrintAppException {
+    public Response<PrinterInterface> connect(String username, String password, SessionToken sessionToken) throws RemoteException, PrintAppException {
+
+        // Case the server is running but the user has not connected to it (different client started the server)
+        Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+        PrinterInterface printApp = null;
+        try {
+            printApp = (PrinterInterface) registry.lookup("PrinterServer");
+        } catch (NotBoundException e) {
+            throw new PrintAppException("Server could not be found");
+        }
+        sessionToken = printApp.authenticateUser(username, password, sessionToken, null);
+        return new Response<>(printApp, "Connected to already running server", sessionToken);
+    }
+
+    public Response<PrinterInterface> start(String username, String password, SessionToken sessionToken, boolean restart) throws PrintAppException, RemoteException {
         Registry registry;
         String action = restart ? "restart" : "start";
-        try {
-            // Connect to the registry
-            registry = LocateRegistry.getRegistry("localhost", 1099);
-            PrinterInterface printApp = (PrinterInterface) registry.lookup("PrinterServer");
-            sessionToken = printApp.authenticateUser(username, password, sessionToken, action);
-            return new Response<>(printApp, "Server was already running", sessionToken);
-        } catch (RemoteException | NotBoundException err) {
-            try {
-                PrintServer printServer = new PrintServer(); // Will start the new server
-                registry = LocateRegistry.getRegistry("localhost", 1099);
-                PrinterInterface printApp = (PrinterInterface) registry.lookup("PrinterServer");
-                try {
-                    sessionToken = printApp.authenticateUser(username, password, sessionToken, action);
-                } catch (RemoteException e) {
-                    return new Response<>(printApp, "Could not authenticate User", sessionToken);
-                }
-                return new Response<>(printApp, "Server started successfully", sessionToken);
-            } catch (RemoteException e) {
-                return new Response<>(null, "Server could not be started", sessionToken);
-            } catch (NotBoundException e) {
-                return new Response<>(null, "Could not find Server", sessionToken);
-            }
-        }
+        return this.printServer(username, password, sessionToken, action);
     }
 
     public Response<Void> stop(SessionToken sessionToken, Boolean restart) throws PrintAppException, RemoteException {
         String action = restart ? "restart" : "stop";
+
+        // Authenticate the action
         authenticateAction(action, sessionToken);
+
         try {
+            // Get the current registry
             Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            registry.unbind("PrinterServer");
+
+            killServer(registry);
+
             return new Response<>(null, "Server stopped successfully", null);
-        } catch (NotBoundException | RemoteException e) {
+
+
+        } catch (NotBoundException e) {
             throw new PrintAppException("Server was not running");
+        } catch (Exception e) {
+            throw new PrintAppException("Error while stopping the server: " + e.getMessage());
         }
+    }
+
+    private void killServer(Registry registry) throws NotBoundException, RemoteException {
+        // Unbind the server from the registry
+        registry.unbind("PrinterServer");
+        boolean forceUnexport = true;
+        UnicastRemoteObject.unexportObject(this, forceUnexport);
+    }
+
+    public Response<PrinterInterface> printServer(String username, String password,SessionToken sessionToken, String action) throws PrintAppException, RemoteException {
+
+        this.loadData();
+        Registry registry;
+        try {
+            registry = LocateRegistry.createRegistry(1099);
+        } catch (RemoteException e) {
+            try {
+                registry = LocateRegistry.getRegistry(1099);
+            } catch (RemoteException ex) {
+                return new Response<>(null, "Can't get Registry", null);
+            }
+        }
+
+        try {
+            registry.bind("PrinterServer", this);
+        } catch (AlreadyBoundException | RemoteException e) {
+            return new Response<>(null, "Could not bind application", null);
+        }
+        sessionToken = this.authenticateUser(username, password, sessionToken, action);
+        return new Response<>(this, "Server started successfully", sessionToken);
+    }
+
+    public static ArrayList<Printer> loadPrintersFromFile() {
+        ArrayList<Printer> printers = new ArrayList<>();
+        String fileName = "dummyData/dummyPrinters.txt";
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(fileName))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                printers.add(new Printer(line.trim()));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return printers;
+    }
+
+    public static ArrayList<User> loadUsers() {
+        ArrayList<User> users = new ArrayList<>();
+
+        try {
+            Path filePath = Paths.get("dummyData/users.json");
+            String content = new String(Files.readAllBytes(filePath));
+
+            // Start by parsing the content as a JSONArray, not JSONObject
+            JSONArray usersArray = new JSONArray(content);
+
+            // Loop through each user object in the array
+            for (int i = 0; i < usersArray.length(); i++) {
+                JSONObject userObj = usersArray.getJSONObject(i);
+                String name = userObj.getString("name");
+                String password = userObj.getString("password");
+                JSONArray userTypeArray = userObj.getJSONArray("userType");
+                String[] userType = new String[userTypeArray.length()];
+                for (int j = 0; j < userTypeArray.length(); j++) {
+                    userType[j] = userTypeArray.getString(j);
+                }
+                // Create a new User and add it to the list
+                User user = new User(name, password, userType);
+                users.add(user);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return users;
     }
 }
