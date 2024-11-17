@@ -1,1 +1,6 @@
 Job id: 1 Filename: jonas Printed by: Printer1
+Job id: 1 Filename: jonas Printed by: Printer1
+Job id: 1 Filename: jonas Printed by: Printer2
+Job id: 1 Filename: jonas Printed by: Printer3
+Job id: 1 Filename: a Printed by: Printer1
+Job id: 1 Filename: d Printed by: Printer2
