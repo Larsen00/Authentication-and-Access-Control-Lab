@@ -119,7 +119,6 @@ public class Client {
                     System.out.println("Server not running, contact user with admin rights to start the server.");
                 }
             }
-
         }
     }
 
