@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.Serial;
 import java.rmi.AlreadyBoundException;
 import java.rmi.NotBoundException;
-import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -37,7 +36,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
 
     @Override
     public void print(String filename, String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("print", sessionToken);
+        accessControl("print", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             printer.print(filename);
@@ -45,7 +44,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
      }
 
     public Queue<PrintJob> queue(String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("queue", sessionToken);
+        accessControl("queue", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             return printer.queue();
@@ -54,7 +53,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
 
     public void TopQueue(String printerName, int job, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("topQueue", sessionToken);
+        accessControl("topQueue", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             try {
@@ -66,18 +65,18 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
 
     public void setConfig(String parameter, String value, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("setConfig", sessionToken);
+        accessControl("setConfig", sessionToken);
         config.put(parameter, value);
     }
 
 
     public String readConfig(String parameter, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("readConfig", sessionToken);
+        accessControl("readConfig", sessionToken);
         return config.get(parameter);
     }
 
     public String status(String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("status", sessionToken);
+        accessControl("status", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             return printer.status();
@@ -85,27 +84,46 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         return "Printer: "+printerName+" does not exist!";
     }
 
-    public void accessControl(String methodName, String[] userRole) throws PrintAppException {
-           
-        Path filePath = Paths.get("src/hierarchy-access-control.json");
-        String content = null;
-        try {
-            content = new String(Files.readAllBytes(filePath));
+    public boolean checkAccessControl(String methodName, String username) {
+        // A match is access granted, otherwise access denied
+
+        String filePath = "dummyData/ACL.txt";
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                // Split each line by colon
+                String[] parts = line.split(":");
+                if (parts.length == 2) {
+                    String subjectName = parts[0].trim();
+                    String accessRight = parts[1].trim();
+                    if (methodName.equals(subjectName) && accessRight.equals(username)) {
+                        return true;
+                    }
+                }
+            }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
-        JSONObject jsonObject = new JSONObject(content);
-           
-        // Check if the action is allowed for the role
-        Set<String> allowedActions =new HashSet<>();
-        for(String role: userRole){
-            allowedActions.addAll(getActionsForRole(role, jsonObject));
+        return false;
+    }
+
+    public void accessControl(String methodName, SessionToken sessionToken) throws PrintAppException {
+
+        validateSession(sessionToken);
+
+        if (methodName == null) {
+            return;
         }
 
-        // System.out.println(allowedActions);
-        if (!allowedActions.contains(methodName)) {
-            throw new PrintAppException("This Action ("+ methodName+") is not authorized");
+        User user = sessionToken.getUser();
+
+        // access control for the user
+        if (checkAccessControl(methodName, user.getName())) {
+            return;
         }
+
+        // If the subjectName and accessRight pair match the method name and username is not found, throw an exception
+        throw new PrintAppException("This Action ("+ methodName+") is not authorized");
     }
     public void validateSession(SessionToken sessionToken) throws PrintAppException {
         if (!this.sessionManager.validateSessionToken(sessionToken)) {
@@ -123,28 +141,13 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
                return null;
            }
         }
-        validateSession(sessionToken);
-        User user = sessionToken.getUser();
-        if (action != null) {
-            accessControl(action, user.getUserType());
-        }
+        accessControl(action, sessionToken);
         return sessionToken;
-    }
-
-    public void authenticateAction(String action, SessionToken sessionToken) throws PrintAppException {
-        validateSession(sessionToken);
-        User user = sessionToken.getUser();
-        accessControl(action, user.getUserType());
     }
 
     public boolean isAllowedToStartServer(String username) throws RemoteException {
         User user = usersMap.get(username);
-        try {
-            accessControl("start", user.getUserType());
-            return true;
-        } catch (PrintAppException e) {
-            return false;
-        }
+        return checkAccessControl("start", user.getName());
     }
     private Set<String> getActionsForRole(String roleName, JSONObject rolesJson)   {
         Set<String> actions = new HashSet<>();
@@ -261,7 +264,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         String action = restart ? "restart" : "stop";
 
         // Authenticate the action
-        authenticateAction(action, sessionToken);
+        accessControl(action, sessionToken);
 
         try {
             // Get the current registry
