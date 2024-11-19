@@ -26,3 +26,4 @@ restart by: Alice at 2024-11-19 21:09:31 - Access Granted
 Stopped the server by: Alice at 2024-11-19 21:09:31 - Access Granted
 restart by: Alice at 2024-11-19 21:09:31 - Access Granted
 Started the server by: null at 2024-11-19 21:09:31 - Access Granted
+login by: Alice at 2024-11-19 21:15:45 - Access Denied
