@@ -331,13 +331,8 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
                 JSONObject userObj = usersArray.getJSONObject(i);
                 String name = userObj.getString("name");
                 String password = userObj.getString("password");
-                JSONArray userTypeArray = userObj.getJSONArray("userType");
-                String[] userType = new String[userTypeArray.length()];
-                for (int j = 0; j < userTypeArray.length(); j++) {
-                    userType[j] = userTypeArray.getString(j);
-                }
                 // Create a new User and add it to the list
-                User user = new User(name, password, userType);
+                User user = new User(name, password);
                 users.add(user);
             }
 

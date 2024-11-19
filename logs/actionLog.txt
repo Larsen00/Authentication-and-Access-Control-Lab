@@ -16,3 +16,13 @@ login by: Bob at 2024-11-19 20:56:56 - Access Granted
 login by: Bob at 2024-11-19 20:56:56 - Access Granted
 connected to server by: Bob at 2024-11-19 20:56:56 - Access Granted
 status by: Bob at 2024-11-19 20:57:16 - Access Granted
+login by: Alice at 2024-11-19 21:09:11 - Access Granted
+start by: Alice at 2024-11-19 21:09:11 - Access Granted
+login by: Alice at 2024-11-19 21:09:11 - Access Granted
+start by: Alice at 2024-11-19 21:09:11 - Access Granted
+Started the server by: Alice at 2024-11-19 21:09:11 - Access Granted
+print by: Alice at 2024-11-19 21:09:27 - Access Granted
+restart by: Alice at 2024-11-19 21:09:31 - Access Granted
+Stopped the server by: Alice at 2024-11-19 21:09:31 - Access Granted
+restart by: Alice at 2024-11-19 21:09:31 - Access Granted
+Started the server by: null at 2024-11-19 21:09:31 - Access Granted
