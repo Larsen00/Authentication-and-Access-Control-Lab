@@ -1,10 +1,6 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Serial;
+import java.io.*;
 import java.rmi.AlreadyBoundException;
 import java.rmi.NotBoundException;
-import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -85,8 +81,8 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         return "Printer: "+printerName+" does not exist!";
     }
 
-    public void accessControl(String methodName, String[] userRole) throws PrintAppException {
-           
+    public void accessControl(String methodName, User user) throws PrintAppException {
+        String [] userRole = user.getUserType();
         Path filePath = Paths.get("src/hierarchy-access-control.json");
         String content = null;
         try {
@@ -104,8 +100,10 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
 
         // System.out.println(allowedActions);
         if (!allowedActions.contains(methodName)) {
+            logAction(methodName, user.getName(), false);
             throw new PrintAppException("This Action ("+ methodName+") is not authorized");
         }
+        logAction(methodName, user.getName(), true);
     }
     public void validateSession(SessionToken sessionToken) throws PrintAppException {
         if (!this.sessionManager.validateSessionToken(sessionToken)) {
@@ -126,7 +124,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         validateSession(sessionToken);
         User user = sessionToken.getUser();
         if (action != null) {
-            accessControl(action, user.getUserType());
+            accessControl(action, user);
         }
         return sessionToken;
     }
@@ -134,13 +132,13 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     public void authenticateAction(String action, SessionToken sessionToken) throws PrintAppException {
         validateSession(sessionToken);
         User user = sessionToken.getUser();
-        accessControl(action, user.getUserType());
+        accessControl(action, user);
     }
 
     public boolean isAllowedToStartServer(String username) throws RemoteException {
         User user = usersMap.get(username);
         try {
-            accessControl("start", user.getUserType());
+            accessControl("start", user);
             return true;
         } catch (PrintAppException e) {
             return false;
@@ -205,7 +203,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             return new Response<>(null, "Password is incorrect", null);
         }
 
-        return new Response<>(this, "Login successful", null);
+        return new Response<>(this, "Login details accepted", null);
     }
 
 
@@ -248,6 +246,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             throw new PrintAppException("Server could not be found");
         }
         sessionToken = printApp.authenticateUser(username, password, sessionToken, null);
+        logAction("connect to server", username, true);
         return new Response<>(printApp, "Connected to already running server", sessionToken);
     }
 
@@ -268,7 +267,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             Registry registry = LocateRegistry.getRegistry("localhost", 1099);
 
             killServer(registry);
-
+            logAction("Stopped the server", sessionToken.getUser().getName(), true);
             return new Response<>(null, "Server stopped successfully", null);
 
 
@@ -306,6 +305,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             return new Response<>(null, "Could not bind application", null);
         }
         sessionToken = this.authenticateUser(username, password, sessionToken, action);
+        logAction("Started the server", username, true);
         return new Response<>(this, "Server started successfully", sessionToken);
     }
 
@@ -354,5 +354,22 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         }
 
         return users;
+    }
+
+    public void logAction(String action, String username, Boolean accessGranted) {
+        String filepath = "logs/actionLog.txt";
+        new java.io.File("logs").mkdirs();
+        String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date());
+
+        try (FileWriter writer = new FileWriter(filepath, true)) { // Open in append mode
+            if (accessGranted) {
+                writer.write(action + " by: " + username + " at " + timestamp + " - Access Granted\n");
+            } else {
+                writer.write(action + " by: " + username + " at " + timestamp + " - Access Denied\n");
+            }
+            writer.flush(); // Ensure data is written to the file
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

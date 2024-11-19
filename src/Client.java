@@ -1,3 +1,5 @@
+import java.io.FileWriter;
+import java.io.IOException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.util.*;
@@ -116,7 +118,7 @@ public class Client {
                     this.handleStart(username, password, false);
                     this.screen = ScreenState.MENU;
                 } else {
-                    System.out.println("Server not running, contact user with admin rights to start the server.");
+                    printAppResponse.add("Server not running, contact user with admin rights to start the server.");
                 }
             }
 
@@ -165,7 +167,7 @@ public class Client {
 
     public boolean printServerCheck(String action) {
         if (printApp == null && !action.equals("start") && !action.equals("stop") && !action.equals("restart") && !action.equals("exit")) {
-            System.out.println("Error: The server is not running. Please start the server first.");
+            printAppResponse.add("Error: The server is not running. Please start the server first.");
             return false;
         }
         return true;
