@@ -121,7 +121,6 @@ public class Client {
                     printAppResponse.add("Server not running, contact user with admin rights to start the server.");
                 }
             }
-
         }
     }
 

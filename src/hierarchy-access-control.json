@@ -19,6 +19,16 @@
   },
   "janitor": {
     "actions": [
+    ],
+    "extends": [
+      "null"
+    ]
+  },
+  "service technician": {
+    "actions": [
+      "status",
+      "readConfig",
+      "setConfig",
       "restart",
       "start",
       "stop"
@@ -27,14 +37,12 @@
       "null"
     ]
   },
-  "service technician":{
-    "actions":["status","readConfig","setConfig"],
-    "extends":["null"]},
-
   "manager": {
     "actions": [],
     "extends": [
-      "janitor","power_user","service technician"
+      "janitor",
+      "power_user",
+      "service technician"
     ]
   }
 }
