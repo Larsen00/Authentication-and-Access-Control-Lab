@@ -202,7 +202,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         if (!user.comparePassword(password)) {
             return new Response<>(null, "Password is incorrect", null);
         }
-
+        logAction("login", userName, true);
         return new Response<>(this, "Login details accepted", null);
     }
 
