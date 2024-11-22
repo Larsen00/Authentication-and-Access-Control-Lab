@@ -1,10 +1,6 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Serial;
+import java.io.*;
 import java.rmi.AlreadyBoundException;
 import java.rmi.NotBoundException;
-import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -37,7 +33,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
 
     @Override
     public void print(String filename, String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("print", sessionToken);
+        accessControl("print", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             printer.print(filename);
@@ -45,7 +41,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
      }
 
     public Queue<PrintJob> queue(String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("queue", sessionToken);
+        accessControl("queue", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             return printer.queue();
@@ -54,7 +50,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
 
     public void TopQueue(String printerName, int job, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("topQueue", sessionToken);
+        accessControl("topQueue", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             try {
@@ -66,18 +62,18 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
 
     public void setConfig(String parameter, String value, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("setConfig", sessionToken);
+        accessControl("setConfig", sessionToken);
         config.put(parameter, value);
     }
 
 
     public String readConfig(String parameter, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("readConfig", sessionToken);
+        accessControl("readConfig", sessionToken);
         return config.get(parameter);
     }
 
     public String status(String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("status", sessionToken);
+        accessControl("status", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             return printer.status();
@@ -85,27 +81,65 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         return "Printer: "+printerName+" does not exist!";
     }
 
-    public void accessControl(String methodName, String[] userRole) throws PrintAppException {
-           
-        Path filePath = Paths.get("src/hierarchy-access-control.json");
-        String content = null;
-        try {
-            content = new String(Files.readAllBytes(filePath));
+    public void logAction(String action, String username, Boolean accessGranted) {
+        String filepath = "logs/actionLog.txt";
+        new java.io.File("logs").mkdirs();
+        String timestamp = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date());
+
+        try (FileWriter writer = new FileWriter(filepath, true)) { // Open in append mode
+            if (accessGranted) {
+                writer.write(action + " by: " + username + " at " + timestamp + " - Access Granted\n");
+            } else {
+                writer.write(action + " by: " + username + " at " + timestamp + " - Access Denied\n");
+            }
+            writer.flush(); // Ensure data is written to the file
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            throw new RuntimeException("Error writing job to file", e);
         }
-        JSONObject jsonObject = new JSONObject(content);
-           
-        // Check if the action is allowed for the role
-        Set<String> allowedActions =new HashSet<>();
-        for(String role: userRole){
-            allowedActions.addAll(getActionsForRole(role, jsonObject));
+    }
+
+    public boolean checkAccessControl(String methodName, String username) {
+        // A match is access granted, otherwise access denied
+
+        String filePath = "dummyData/ACL.txt";
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                // Split each line by colon
+                String[] parts = line.split(":");
+                if (parts.length == 2) {
+                    String subjectName = parts[0].trim();
+                    String accessRight = parts[1].trim();
+                    if (methodName.equals(subjectName) && accessRight.equals(username)) {
+                        logAction(methodName, username, true);
+                        return true;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logAction(methodName, username, false);
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public void accessControl(String methodName, SessionToken sessionToken) throws PrintAppException {
+
+        validateSession(sessionToken);
+
+        if (methodName == null) {
+            return;
         }
 
-        // System.out.println(allowedActions);
-        if (!allowedActions.contains(methodName)) {
-            throw new PrintAppException("This Action ("+ methodName+") is not authorized");
+        User user = sessionToken.getUser();
+
+        // access control for the user
+        if (checkAccessControl(methodName, user.getName())) {
+            return;
         }
+
+        // If the subjectName and accessRight pair match the method name and username is not found, throw an exception
+        throw new PrintAppException("This Action ("+ methodName+") is not authorized");
     }
     public void validateSession(SessionToken sessionToken) throws PrintAppException {
         if (!this.sessionManager.validateSessionToken(sessionToken)) {
@@ -123,60 +157,17 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
                return null;
            }
         }
-        validateSession(sessionToken);
-        User user = sessionToken.getUser();
-        if (action != null) {
-            accessControl(action, user.getUserType());
-        }
+        accessControl(action, sessionToken);
         return sessionToken;
-    }
-
-    public void authenticateAction(String action, SessionToken sessionToken) throws PrintAppException {
-        validateSession(sessionToken);
-        User user = sessionToken.getUser();
-        accessControl(action, user.getUserType());
     }
 
     public boolean isAllowedToStartServer(String username) throws RemoteException {
         User user = usersMap.get(username);
-        try {
-            accessControl("start", user.getUserType());
-            return true;
-        } catch (PrintAppException e) {
-            return false;
-        }
+        return checkAccessControl("start", user.getName());
     }
-    private Set<String> getActionsForRole(String roleName, JSONObject rolesJson)   {
-        Set<String> actions = new HashSet<>();
-        JSONObject role = rolesJson.optJSONObject(roleName);
-        
-        if (role == null) {
-            return actions;
-        }
-        // Add actions of the current role
-        JSONArray actionsArray = role.optJSONArray("actions");
-        if (actionsArray.length() != 0 ) {
-            for (int i = 0; i < actionsArray.length(); i++) {
-                actions.add(actionsArray.getString(i));
-            }
-        }
 
-        // Recursively add actions from extended roles
-        JSONArray extendsArray = role.optJSONArray("extends");
-        if (extendsArray.length() !=0) {
-            for (int i = 0; i < extendsArray.length(); i++) {
-                String parentRoleName = extendsArray.optString(i);
-                if (parentRoleName != null) {
-                    
-                    Set<String> new_actions = getActionsForRole(parentRoleName,rolesJson);
-                    if (new_actions!=null){
-                        actions.addAll(new_actions);
-                    }
-                }
-            }
-        }
-        return actions;
-    }
+
+
 
     private void loadData(){
         if (!this.hasLoadedDummyData) {
@@ -202,9 +193,10 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         User user = usersMap.get(userName);
 
         if (!user.comparePassword(password)) {
+            logAction("login", userName, false);
             return new Response<>(null, "Password is incorrect", null);
         }
-
+        logAction("login", userName, true);
         return new Response<>(this, "Login successful", null);
     }
 
@@ -248,6 +240,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             throw new PrintAppException("Server could not be found");
         }
         sessionToken = printApp.authenticateUser(username, password, sessionToken, null);
+        logAction("connected to server", username, true);
         return new Response<>(printApp, "Connected to already running server", sessionToken);
     }
 
@@ -261,17 +254,15 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         String action = restart ? "restart" : "stop";
 
         // Authenticate the action
-        authenticateAction(action, sessionToken);
+        accessControl(action, sessionToken);
 
         try {
             // Get the current registry
             Registry registry = LocateRegistry.getRegistry("localhost", 1099);
 
             killServer(registry);
-
+            logAction("Stopped the server", sessionToken.getUser().getName(), true);
             return new Response<>(null, "Server stopped successfully", null);
-
-
         } catch (NotBoundException e) {
             throw new PrintAppException("Server was not running");
         } catch (Exception e) {
@@ -306,6 +297,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
             return new Response<>(null, "Could not bind application", null);
         }
         sessionToken = this.authenticateUser(username, password, sessionToken, action);
+        logAction("Started the server", username, true);
         return new Response<>(this, "Server started successfully", sessionToken);
     }
 
@@ -339,13 +331,8 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
                 JSONObject userObj = usersArray.getJSONObject(i);
                 String name = userObj.getString("name");
                 String password = userObj.getString("password");
-                JSONArray userTypeArray = userObj.getJSONArray("userType");
-                String[] userType = new String[userTypeArray.length()];
-                for (int j = 0; j < userTypeArray.length(); j++) {
-                    userType[j] = userTypeArray.getString(j);
-                }
                 // Create a new User and add it to the list
-                User user = new User(name, password, userType);
+                User user = new User(name, password);
                 users.add(user);
             }
 
