@@ -107,8 +107,10 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
     public void validateSession(SessionToken sessionToken) throws PrintAppException {
         if (!this.sessionManager.validateSessionToken(sessionToken)) {
+            logAction("validateSession", sessionToken.getUser().getName(), false);
             throw new PrintAppException("Session expired. Please login again.");
         }
+        logAction("validateSession", sessionToken.getUser().getName(), true);
     }
 
     // Should be used as a dynamic function to check if the user is authenticated either by session token or by username and password
