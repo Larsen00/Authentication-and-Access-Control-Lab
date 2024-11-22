@@ -33,7 +33,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
 
     @Override
     public void print(String filename, String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("print", sessionToken);
+        accesControl("print", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             printer.print(filename);
@@ -41,7 +41,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
      }
 
     public Queue<PrintJob> queue(String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("queue", sessionToken);
+        accesControl("queue", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             return printer.queue();
@@ -50,7 +50,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
 
     public void TopQueue(String printerName, int job, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("topQueue", sessionToken);
+        accesControl("topQueue", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             try {
@@ -62,18 +62,18 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
     }
 
     public void setConfig(String parameter, String value, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("setConfig", sessionToken);
+        accesControl("setConfig", sessionToken);
         config.put(parameter, value);
     }
 
 
     public String readConfig(String parameter, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("readConfig", sessionToken);
+        accesControl("readConfig", sessionToken);
         return config.get(parameter);
     }
 
     public String status(String printerName, SessionToken sessionToken) throws RemoteException, PrintAppException {
-        authenticateAction("status", sessionToken);
+        accesControl("status", sessionToken);
         Printer printer = getPrinter(printerName);
         if (printer != null){
             return printer.status();
@@ -129,7 +129,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         return sessionToken;
     }
 
-    public void authenticateAction(String action, SessionToken sessionToken) throws PrintAppException {
+    public void accesControl(String action, SessionToken sessionToken) throws PrintAppException {
         validateSession(sessionToken);
         User user = sessionToken.getUser();
         accessControl(action, user);
@@ -260,7 +260,7 @@ public class PrintApplication extends UnicastRemoteObject implements PrinterInte
         String action = restart ? "restart" : "stop";
 
         // Authenticate the action
-        authenticateAction(action, sessionToken);
+        accesControl(action, sessionToken);
 
         try {
             // Get the current registry
